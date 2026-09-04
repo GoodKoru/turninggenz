@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gen Z Slang Arena & Translator</title>
+    
+    <!-- React & ReactDOM -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+    
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Framer Motion -->
+    <script src="https://unpkg.com/framer-motion@10.16.4/dist/framer-motion.js"></script>
+    
+    <!-- Canvas Confetti -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+    <style>
+        body {
+            background-color: #030712;
+            color: #f9fafb;
+            font-family: system-ui, -apple-system, sans-serif;
+            overflow-x: hidden;
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #0b0f19; }
+        ::-webkit-scrollbar-thumb { background: #1f293d; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #374151; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+        const { motion, AnimatePresence } = window.Motion;
+
+        // --- CONSTANTS & MAPPINGS ---
+        const STYLES = [
+            { id: 'genz', name: 'Gen Z / Brainrot', icon: '💀', desc: 'Maximum bussin brainrot vibes' },
+            { id: 'reverse', name: 'Brainrot -> Normal', icon: '🧹', desc: 'Translate slang back to plain English' },
+            { id: 'shakespeare', name: 'Shakespearean', icon: '📜', desc: 'Verily, thou art goated' },
+            { id: 'british', name: 'British Roadman', icon: '☕', desc: 'Allow it fam, bare vibes' },
+            { id: 'pirate', name: 'Pirate', icon: '🏴‍☠️', desc: 'Ahoy matey, ye got rizz' },
+            { id: 'formal', name: 'Overly Formal', icon: '🎩', desc: 'Extremely sophisticated prose' }
+        ];
+
+        const GENZ_DICT = {
+            "hello": "yo chat", "friend": "blud", "friends": "the squad", "good": "bussin",
+            "great": "w", "cool": "sigma", "bad": "L", "lie": "cap", "truth": "no cap",
+            "yes": "fr fr", "very": "mad", "crazy": "unhinged", "attractive": "rizzler",
+            "charisma": "rizz", "steal": "fanum tax", "stole": "fanum taxed", "food": "gyatt food",
+            "fool": "skibidi NPC", "weird": "sus", "best": "goated", "defeated": "cooked",
+            "focused": "locked in", "money": "mewing funds", "bro": "chat"
+        };
+
+        const SUFFIXES = [" fr fr", " no cap", " in Ohio", " lowkey", " (real)", " skibidi style"];
+
+        const PROMPTS = [
+            "I am currently focusing very hard on completing my homework.",
+            "My friend stole my food while I was not looking.",
+            "That new video game is extremely good and impressive.",
+            "He tried to look stylish, but he embarrassed himself in public.",
+            "I am telling you the truth, I won the competition fairly."
+        ];
+
+        // --- AURA RANK SYSTEM ---
+        const getRankInfo = (aura) => {
+            if (aura >= 1500) return { title: 'GigaChad Supreme', color: 'from-amber-400 to-red-500', icon: '👑' };
+            if (aura >= 1000) return { title: 'Aura Master', color: 'from-purple-500 to-pink-500', icon: '🔮' };
+            if (aura >= 750) return { title: 'Valid', color: 'from-cyan-400 to-blue-500', icon: '⚡' };
+            if (aura >= 500) return { title: 'Aura Apprentice', color: 'from-emerald-400 to-teal-500', icon: '✨' };
+            if (aura >= 250) return { title: 'Certified', color: 'from-yellow-400 to-orange-500', icon: '🎖️' };
+            if (aura >= 100) return { title: 'Side Character', color: 'from-slate-400 to-slate-200', icon: '👤' };
+            return { title: 'NPC', color: 'from-slate-600 to-slate-400', icon: '🤖' };
+        };
+
+        // --- MASCOT COMPONENT ---
+        const Mascot = ({ state }) => {
+            const eyeState = () => {
+                switch(state) {
+                    case 'thinking': return <ellipse cx="50" cy="42" rx="6" ry="2" fill="#38bdf8" />;
+                    case 'celebrate': return <path d="M 30 42 Q 40 32 50 42 M 50 42 Q 60 32 70 42" stroke="#38bdf8" strokeWidth="4" fill="none" strokeLinecap="round" />;
+                    case 'sad': return <path d="M 30 45 Q 40 52 50 45 M 50 45 Q 60 52 70 45" stroke="#38bdf8" strokeWidth="4" fill="none" strokeLinecap="round" />;
+                    default: return (
+                        <>
+                            <circle cx="38" cy="42" r="5" fill="#38bdf8" />
+                            <circle cx="62" cy="42" r="5" fill="#38bdf8" />
+                        </>
+                    );
+                }
+            };
+
+            const mascotVariants = {
+                idle: { y: [0, -10, 0], transition: { duration: 3, repeat: Infinity, ease: "easeInOut" } },
+                typing: { scale: [1, 1.04, 1], rotate: [0, 2, -2, 0], transition: { duration: 0.4, repeat: Infinity } },
+                thinking: { rotate: [0, 360], transition: { duration: 2, repeat: Infinity, ease: "linear" } },
+                celebrate: { y: [0, -25, 0], scale: [1, 1.15, 1], transition: { duration: 0.5, repeat: 3 } },
+                sad: { y: [0, 8, 0], opacity: 0.8, transition: { duration: 1.5, repeat: Infinity } }
+            };
+
+            return (
+                <div className="relative w-28 h-28 mx-auto">
+                    <motion.div animate={mascotVariants[state] || mascotVariants.idle} className="w-full h-full">
+                        <svg viewBox="0 0 100 100" className="w-full h-full drop-shadow-[0_0_15px_rgba(56,189,248,0.5)]">
+                            <circle cx="50" cy="50" r="36" fill="#0f172a" stroke="#38bdf8" strokeWidth="4" />
+                            {eyeState()}
+                            <path d={state === 'celebrate' ? "M 38 60 Q 50 72 62 60" : "M 40 60 Q 50 66 60 60"} stroke="#a855f7" strokeWidth="3" fill="none" strokeLinecap="round" />
+                            <line x1="50" y1="14" x2="50" y2="4" stroke="#38bdf8" strokeWidth="3" />
+                            <circle cx="50" cy="4" r="4" fill="#a855f7" />
+                        </svg>
+                    </motion.div>
+                </div>
+            );
+        };
+
+        // --- MAIN APP COMPONENT ---
+        const App = () => {
+            const [activeTab, setActiveTab] = useState('home'); // 'home', 'translator', 'game', 'leaderboard'
+            const [selectedStyle, setSelectedStyle] = useState('genz');
+            const [inputText, setInputText] = useState('');
+            const [translatedText, setTranslatedText] = useState('');
+            const [history, setHistory] = useState([]);
+            const [mascotState, setMascotState] = useState('idle');
+            
+            // Game State
+            const [user, setUser] = useState(null);
+            const [usernameInput, setUsernameInput] = useState('');
+            const [currentPromptIndex, setCurrentPromptIndex] = useState(0);
+            const [gameInput, setGameInput] = useState('');
+            const [evaluating, setEvaluating] = useState(false);
+            const [scoreModal, setScoreModal] = useState(null);
+            const [leaderboard, setLeaderboard] = useState([]);
+
+            // Load Leaderboard from LocalStorage on mount
+            useEffect(() => {
+                const savedLB = JSON.parse(localStorage.getItem('genz_arena_lb') || '[]');
+                if (savedLB.length === 0) {
+                    const mockLB = [
+                        { id: 1, username: 'RizzGod99', total_aura: 1850, highest_score: 98, games_played: 20, badges: ['GigaChad Supreme', 'Sigma Master'] },
+                        { id: 2, username: 'SkibidiKing', total_aura: 1120, highest_score: 92, games_played: 14, badges: ['Aura Overlord'] },
+                        { id: 3, username: 'GyattWatcher', total_aura: 640, highest_score: 85, games_played: 8, badges: ['Aura Apprentice'] }
+                    ];
+                    setLeaderboard(mockLB);
+                    localStorage.setItem('genz_arena_lb', JSON.stringify(mockLB));
+                } else {
+                    setLeaderboard(savedLB);
+                }
+            }, []);
+
+            // --- TRANSLATION LOGIC ---
+            const handleTranslate = () => {
+                if (!inputText.trim()) return;
+                setMascotState('thinking');
+                
+                setTimeout(() => {
+                    let result = "";
+                    const words = inputText.split(/\s+/);
+
+                    if (selectedStyle === 'genz') {
+                        const translated = words.map(w => {
+                            const clean = w.toLowerCase().replace(/[^\w]/g, "");
+                            return GENZ_DICT[clean] ? w.toLowerCase().replace(clean, GENZ_DICT[clean]) : w;
+                        });
+                        result = translated.join(" ") + SUFFIXES[Math.floor(Math.random() * SUFFIXES.length)];
+                    } else if (selectedStyle === 'reverse') {
+                        const reverseMap = Object.fromEntries(Object.entries(GENZ_DICT).map(([k, v]) => [v, k]));
+                        result = words.map(w => reverseMap[w.toLowerCase()] || w).join(" ");
+                    } else if (selectedStyle === 'shakespeare') {
+                        result = "Hark! " + words.map(w => w + "eth").join(" ") + ", verily fine sir.";
+                    } else if (selectedStyle === 'british') {
+                        result = "Allow it fam, " + words.join(" ") + " is proper mad innit, bruv.";
+                    } else if (selectedStyle === 'pirate') {
+                        result = "Ahoy matey! " + words.join(" ") + " by order of Cap'n!";
+                    } else {
+                        result = "It is hereby formally recognized that " + words.join(" ") + ".";
+                    }
+
+                    setTranslatedText(result);
+                    setHistory(prev => [{ id: Date.now(), original: inputText, translated: result, style: selectedStyle }, ...prev.slice(0, 4)]);
+                    setMascotState('celebrate');
+                    setTimeout(() => setMascotState('idle'), 2000);
+                }, 400);
+            };
+
+            // --- GAME LOGIC ---
+            const handleLogin = (e) => {
+                e.preventDefault();
+                if (!usernameInput.trim()) return;
+                
+                const existing = leaderboard.find(u => u.username.toLowerCase() === usernameInput.trim().toLowerCase());
+                const currentUser = existing || {
+                    id: Date.now(),
+                    username: usernameInput.trim(),
+                    total_aura: 0,
+                    highest_score: 0,
+                    games_played: 0,
+                    badges: []
+                };
+                
+                setUser(currentUser);
+            };
+
+            const evaluateGameSubmission = () => {
+                if (!gameInput.trim()) return;
+                setEvaluating(true);
+                setMascotState('thinking');
+
+                setTimeout(() => {
+                    const wordCount = gameInput.trim().split(/\s+/).length;
+                    const slangMatches = Object.values(GENZ_DICT).filter(slang => gameInput.toLowerCase().includes(slang)).length;
+
+                    const slangScore = Math.min(100, slangMatches * 30 + 20);
+                    const naturalness = wordCount >= 4 && slangMatches <= 3 ? 88 : 55;
+                    const meaning = 82;
+                    const creativity = Math.min(100, 45 + slangMatches * 15);
+                    const overall = Math.round((slangScore + naturalness + meaning + creativity) / 4);
+
+                    const newTotalAura = user.total_aura + overall;
+                    const newHighest = Math.max(user.highest_score, overall);
+                    const newGames = user.games_played + 1;
+
+                    // Badges Logic
+                    const updatedBadges = [...(user.badges || [])];
+                    if (overall >= 90 && !updatedBadges.includes('Sigma Master')) updatedBadges.push('Sigma Master');
+                    if (newTotalAura >= 500 && !updatedBadges.includes('Aura Overlord')) updatedBadges.push('Aura Overlord');
+
+                    const updatedUser = { ...user, total_aura: newTotalAura, highest_score: newHighest, games_played: newGames, badges: updatedBadges };
+                    setUser(updatedUser);
+
+                    // Update Leaderboard
+                    const newLB = leaderboard.map(u => u.id === updatedUser.id ? updatedUser : u);
+                    if (!newLB.some(u => u.id === updatedUser.id)) newLB.push(updatedUser);
+                    newLB.sort((a, b) => b.total_aura - a.total_aura);
+                    
+                    setLeaderboard(newLB);
+                    localStorage.setItem('genz_arena_lb', JSON.stringify(newLB));
+
+                    const resultData = {
+                        overall,
+                        meaning,
+                        slangScore,
+                        naturalness,
+                        creativity,
+                        feedback: overall > 75 ? "W submission fr fr, you locked in!" : "Kind of mid, needs more brainrot energy."
+                    };
+
+                    setScoreModal(resultData);
+                    setEvaluating(false);
+
+                    if (overall >= 70) {
+                        setMascotState('celebrate');
+                        confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+                    } else {
+                        setMascotState('sad');
+                    }
+                }, 1000);
+            };
+
+            return (
+                <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
+                    {/* NAVBAR */}
+                    <nav className="border-b border-slate-800 bg-slate-900/80 backdrop-blur-md sticky top-0 z-50 px-6 py-4 flex items-center justify-between">
+                        <div className="flex items-center space-x-3 cursor-pointer" onClick={() => setActiveTab('home')}>
+                            <span className="text-2xl">💀</span>
+                            <span className="font-extrabold text-xl bg-gradient-to-r from-sky-400 to-purple-500 bg-clip-text text-transparent">SlangArena</span>
+                        </div>
+
+                        <div className="flex space-x-2 md:space-x-4">
+                            {['home', 'translator', 'game', 'leaderboard'].map(tab => (
+                                <button
+                                    key={tab}
+                                    onClick={() => setActiveTab(tab)}
+                                    className={`px-3 py-1.5 md:px-4 md:py-2 rounded-xl text-sm font-semibold capitalize transition ${
+                                        activeTab === tab 
+                                            ? 'bg-sky-500/20 text-sky-400 border border-sky-500/30' 
+                                            : 'text-slate-400 hover:text-slate-200'
+                                    }`}
+                                >
+                                    {tab}
+                                </button>
+                            ))}
+                        </div>
+                    </nav>
+
+                    {/* MAIN CONTENT AREA */}
+                    <main className="flex-1 max-w-5xl w-full mx-auto p-4 md:p-6">
+                        
+                        {/* HERO / HOME TAB */}
+                        {activeTab === 'home' && (
+                            <div className="text-center py-12 md:py-20 space-y-8">
+                                <Mascot state={mascotState} />
+                                <div className="space-y-4 max-w-2xl mx-auto">
+                                    <h1 className="text-4xl md:text-6xl font-black tracking-tight">
+                                        Speak normal? <span className="bg-gradient-to-r from-sky-400 to-purple-500 bg-clip-text text-transparent">That's crazy.</span>
+                                    </h1>
+                                    <p className="text-slate-400 text-lg">
+                                        Translate standard English into brainrot Gen Z slang, battle in competitive rewrite challenges, earn Aura, and climb the global leaderboard.
+                                    </p>
+                                </div>
+
+                                <div className="flex flex-col sm:flex-row justify-center gap-4 pt-4">
+                                    <button 
+                                        onClick={() => setActiveTab('translator')}
+                                        className="px-8 py-4 bg-gradient-to-r from-sky-500 to-blue-600 rounded-2xl font-bold text-lg shadow-lg shadow-sky-500/20 hover:scale-105 transition"
+                                    >
+                                        Open Translator 🚀
+                                    </button>
+                                    <button 
+                                        onClick={() => setActiveTab('game')}
+                                        className="px-8 py-4 bg-slate-900 border border-purple-500/40 text-purple-400 rounded-2xl font-bold text-lg hover:bg-purple-500/10 hover:scale-105 transition"
+                                    >
+                                        Enter Aura Arena ⚔️
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* TRANSLATOR TAB */}
+                        {activeTab === 'translator' && (
+                            <div className="space-y-6">
+                                <div className="flex items-center justify-between">
+                                    <h2 className="text-2xl font-bold text-sky-400">Slang Translator</h2>
+                                    <Mascot state={mascotState} />
+                                </div>
+
+                                {/* STYLE CARDS */}
+                                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                    {STYLES.map(style => (
+                                        <div
+                                            key={style.id}
+                                            onClick={() => setSelectedStyle(style.id)}
+                                            className={`p-4 rounded-xl border cursor-pointer transition-all flex flex-col space-y-1 ${
+                                                selectedStyle === style.id
+                                                    ? 'border-sky-400 bg-sky-950/30 shadow-[0_0_15px_rgba(56,189,248,0.2)]'
+                                                    : 'border-slate-800 bg-slate-900/40 hover:border-slate-700'
+                                            }`}
+                                        >
+                                            <div className="flex items-center space-x-2">
+                                                <span className="text-xl">{style.icon}</span>
+                                                <span className="font-bold text-sm text-slate-200">{style.name}</span>
+                                            </div>
+                                            <span className="text-xs text-slate-400">{style.desc}</span>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {/* INPUT BOX */}
+                                <div className="space-y-3">
+                                    <textarea
+                                        value={inputText}
+                                        onChange={(e) => {
+                                            setInputText(e.target.value);
+                                            setMascotState(e.target.value ? 'typing' : 'idle');
+                                        }}
+                                        placeholder="Type standard English sentence here..."
+                                        className="w-full h-32 p-4 bg-slate-900 border border-slate-800 rounded-xl text-slate-100 focus:outline-none focus:border-sky-400 transition"
+                                    />
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={handleTranslate}
+                                            className="flex-1 py-3 bg-sky-500 text-slate-950 font-bold rounded-xl hover:bg-sky-400 transition"
+                                        >
+                                            Translate Sentence
+                                        </button>
+                                        <button
+                                            onClick={() => { setInputText(''); setTranslatedText(''); setMascotState('idle'); }}
+                                            className="px-4 py-3 bg-slate-900 border border-slate-800 text-slate-400 rounded-xl hover:text-slate-200"
+                                        >
+                                            Clear
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* OUTPUT BOX */}
+                                {translatedText && (
+                                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="p-5 bg-slate-900 border-l-4 border-purple-500 rounded-r-xl space-y-2 relative">
+                                        <div className="text-xs font-bold text-purple-400 uppercase tracking-wider">Converted Output</div>
+                                        <div className="text-lg font-bold text-rose-400 pr-16">{translatedText}</div>
+                                        <button
+                                            onClick={() => navigator.clipboard.writeText(translatedText)}
+                                            className="absolute top-4 right-4 text-xs bg-purple-500/20 text-purple-300 border border-purple-500/30 px-3 py-1 rounded-lg hover:bg-purple-500/40"
+                                        >
+                                            Copy
+                                        </button>
+                                    </motion.div>
+                                )}
+
+                                {/* HISTORY */}
+                                {history.length > 0 && (
+                                    <div className="space-y-2 pt-4">
+                                        <h3 className="text-sm font-bold text-slate-400">Session History</h3>
+                                        <div className="space-y-2">
+                                            {history.map(item => (
+                                                <div key={item.id} className="p-3 bg-slate-900/50 border border-slate-800/80 rounded-lg text-xs space-y-1">
+                                                    <div className="text-slate-400">"{item.original}"</div>
+                                                    <div className="text-purple-400 font-semibold">↳ "{item.translated}"</div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* COMPETITIVE GAME TAB */}
+                        {activeTab === 'game' && (
+                            <div className="max-w-2xl mx-auto space-y-6">
+                                {!user ? (
+                                    <form onSubmit={handleLogin} className="p-8 bg-slate-900 border border-slate-800 rounded-2xl text-center space-y-4">
+                                        <Mascot state="idle" />
+                                        <h2 className="text-2xl font-bold text-sky-400">Enter Aura Arena</h2>
+                                        <p className="text-slate-400 text-sm">Choose a username to track your Aura rank and join the global leaderboard.</p>
+                                        <input
+                                            type="text"
+                                            value={usernameInput}
+                                            onChange={(e) => setUsernameInput(e.target.value)}
+                                            placeholder="Enter Username..."
+                                            className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-center font-bold focus:outline-none focus:border-sky-400"
+                                        />
+                                        <button type="submit" className="w-full py-3 bg-sky-500 text-slate-950 font-bold rounded-xl hover:bg-sky-400">
+                                            Start Playing
+                                        </button>
+                                    </form>
+                                ) : (
+                                    <div className="p-6 bg-slate-900 border border-slate-800 rounded-2xl space-y-6">
+                                        <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+                                            <div>
+                                                <h3 className="text-lg font-bold text-slate-200">{user.username}</h3>
+                                                <div className="flex items-center space-x-2 text-xs text-sky-400">
+                                                    <span>{getRankInfo(user.total_aura).icon} {getRankInfo(user.total_aura).title}</span>
+                                                    <span>•</span>
+                                                    <span>{user.total_aura} Aura</span>
+                                                </div>
+                                            </div>
+                                            <Mascot state={evaluating ? 'thinking' : 'idle'} />
+                                        </div>
+
+                                        <div className="p-4 bg-slate-950 border border-slate-800 rounded-xl space-y-1">
+                                            <span className="text-xs font-bold text-purple-400 uppercase tracking-wider">Rewrite in Gen Z Slang:</span>
+                                            <p className="text-base text-slate-200 font-medium">"{PROMPTS[currentPromptIndex]}"</p>
+                                        </div>
+
+                                        <textarea
+                                            value={gameInput}
+                                            onChange={(e) => setGameInput(e.target.value)}
+                                            placeholder="Type your slang version..."
+                                            className="w-full h-28 p-4 bg-slate-950 border border-slate-800 rounded-xl text-slate-100 focus:outline-none focus:border-sky-400"
+                                        />
+
+                                        <button
+                                            onClick={evaluateGameSubmission}
+                                            disabled={evaluating}
+                                            className="w-full py-3 bg-gradient-to-r from-sky-500 to-purple-600 font-bold text-slate-950 rounded-xl hover:opacity-90 disabled:opacity-50"
+                                        >
+                                            {evaluating ? "Evaluating Aura..." : "Submit Answer 🚀"}
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* LEADERBOARD TAB */}
+                        {activeTab === 'leaderboard' && (
+                            <div className="space-y-6">
+                                <h2 className="text-2xl font-bold text-sky-400 text-center">Global Aura Leaderboard</h2>
+                                <div className="p-4 bg-slate-900 border border-slate-800 rounded-2xl space-y-3">
+                                    {leaderboard.map((player, index) => {
+                                        const rank = getRankInfo(player.total_aura);
+                                        return (
+                                            <div key={player.id} className="flex items-center justify-between p-3 bg-slate-950 rounded-xl border border-slate-800/80">
+                                                <div className="flex items-center space-x-3">
+                                                    <span className={`font-black text-lg ${index === 0 ? 'text-amber-400' : index === 1 ? 'text-slate-300' : index === 2 ? 'text-amber-600' : 'text-slate-500'}`}>
+                                                        #{index + 1}
+                                                    </span>
+                                                    <div>
+                                                        <div className="font-bold text-slate-200">{player.username}</div>
+                                                        <div className="text-xs text-sky-400">{rank.icon} {rank.title}</div>
+                                                    </div>
+                                                </div>
+                                                <div className="text-right">
+                                                    <div className="font-bold text-rose-400">{player.total_aura} Aura</div>
+                                                    <div className="text-xs text-slate-500">{player.games_played} Games Played</div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+
+                    </main>
+
+                    {/* SCORE MODAL */}
+                    <AnimatePresence>
+                        {scoreModal && (
+                            <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-50">
+                                <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="bg-slate-900 border border-sky-500/30 p-6 rounded-2xl max-w-md w-full space-y-4">
+                                    <div className="text-center space-y-1">
+                                        <div className="text-xs font-bold text-purple-400 uppercase">Aura Evaluated</div>
+                                        <div className="text-5xl font-black text-sky-400">{scoreModal.overall} <span className="text-lg">Aura</span></div>
+                                        <p className="text-xs text-slate-400">{scoreModal.feedback}</p>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-2 text-xs pt-2">
+                                        <div className="p-2 bg-slate-950 rounded-lg"><span className="text-slate-400">Meaning:</span> <span className="font-bold text-slate-200">{scoreModal.meaning}%</span></div>
+                                        <div className="p-2 bg-slate-950 rounded-lg"><span className="text-slate-400">Slang Usage:</span> <span className="font-bold text-slate-200">{scoreModal.slangScore}%</span></div>
+                                        <div className="p-2 bg-slate-950 rounded-lg"><span className="text-slate-400">Creativity:</span> <span className="font-bold text-slate-200">{scoreModal.creativity}%</span></div>
+                                        <div className="p-2 bg-slate-950 rounded-lg"><span className="text-slate-400">Naturalness:</span> <span className="font-bold text-slate-200">{scoreModal.naturalness}%</span></div>
+                                    </div>
+
+                                    <div className="flex gap-2 pt-2">
+                                        <button
+                                            onClick={() => {
+                                                setScoreModal(null);
+                                                setGameInput('');
+                                                setCurrentPromptIndex((prev) => (prev + 1) % PROMPTS.length);
+                                                setMascotState('idle');
+                                            }}
+                                            className="flex-1 py-2.5 bg-sky-500 text-slate-950 font-bold rounded-xl"
+                                        >
+                                            Next Challenge
+                                        </button>
+                                        <button
+                                            onClick={() => { setScoreModal(null); setActiveTab('leaderboard'); }}
+                                            className="px-4 py-2.5 bg-slate-800 text-slate-300 font-bold rounded-xl"
+                                        >
+                                            Leaderboard
+                                        </button>
+                                    </div>
+                                </motion.div>
+                            </div>
+                        )}
+                    </AnimatePresence>
+                </div>
+            );
+        };
+
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    </script>
+</body>
+</html>

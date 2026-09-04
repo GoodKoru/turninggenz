@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vibelingo</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/framer-motion@10.16.4/dist/framer-motion.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+    <style>
+        body { background-color: #003366; color: #fff; font-family: 'Press Start 2P', monospace; overflow-x: hidden; image-rendering: pixelated; }
+        .pixel-font { font-family: 'Press Start 2P', cursive; }
+        .retro-card { background: rgba(0, 26, 51, 0.95); border: 4px solid #fff; box-shadow: 0 0 0 4px #000, 0 0 20px rgba(255, 255, 255, 0.4), inset 0 0 0 2px #000; }
+        .retro-box { background: #001a33; border: 3px solid #ffcc00; color: #fff; box-shadow: inset 0 0 0 2px #000; }
+        .game-pixel-bg { background: #001f3f linear-gradient(rgba(255, 255, 255, 0.1) 2px, transparent 2px), linear-gradient(90deg, rgba(255, 255, 255, 0.1) 2px, transparent 2px); background-size: 16px 16px; }
+        ::-webkit-scrollbar { width: 10px; } ::-webkit-scrollbar-track { background: #001a33; } ::-webkit-scrollbar-thumb { background: #ff3399; border: 2px solid #000; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+        const { motion, AnimatePresence } = window.FramerMotion || window.Motion || {};
+
+        class PixelAudioEngine {
+            constructor() { this.ctx = null; this.bgmTimer = null; this.isPlayingBgm = false; this.currentMenu = 'home'; this.noteIndex = 0; }
+            init() {
+                if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
+            }
+            playBlip(freq = 440, type = 'square', duration = 0.08) {
+                try {
+                    this.init(); if (!this.ctx) return;
+                    const osc = this.ctx.createOscillator(), gain = this.ctx.createGain();
+                    osc.type = type; osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                    gain.gain.setValueAtTime(0.1, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
+                    osc.connect(gain); gain.connect(this.ctx.destination);
+                    osc.start(); osc.stop(this.ctx.currentTime + duration);
+                } catch(e) {}
+            }
+            playPop() { this.playBlip(600, 'sine', 0.05); setTimeout(() => this.playBlip(880, 'sine', 0.08), 50); }
+            playFanfare() { [523.25, 659.25, 783.99, 1046.50].forEach((f, i) => setTimeout(() => this.playBlip(f, 'square', 0.15), i * 100)); }
+            
+            playGoofyTranslateSound() {
+                this.init(); if (!this.ctx) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(150, now);
+                osc.frequency.linearRampToValueAtTime(800, now + 0.15);
+                osc.frequency.linearRampToValueAtTime(200, now + 0.3);
+                osc.frequency.linearRampToValueAtTime(1000, now + 0.45);
+                gain.gain.setValueAtTime(0.15, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+                osc.connect(gain); gain.connect(this.ctx.destination);
+                osc.start(now); osc.stop(now + 0.5);
+            }
+
+            playLaserSound() {
+                this.init(); if (!this.ctx) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(900, now);
+                osc.frequency.exponentialRampToValueAtTime(80, now + 0.15);
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+                osc.connect(gain); gain.connect(this.ctx.destination);
+                osc.start(now); osc.stop(now + 0.15);
+            }
+
+            setMenuTheme(menu) {
+                this.currentMenu = menu;
+                this.noteIndex = 0;
+            }
+
+            toggleBGM(cb) {
+                this.init();
+                if (this.isPlayingBgm) { clearInterval(this.bgmTimer); this.isPlayingBgm = false; if (cb) cb(false); return; }
+                this.isPlayingBgm = true; if (cb) cb(true);
+
+                const melodies = {
+                    home: [659.25, 659.25, 659.25, 523.25, 659.25, 783.99, 392.00],
+                    translator: [300, 400, 350, 500, 250, 600, 150, 450],
+                    auracheck: [523.25, 587.33, 659.25, 698.46, 783.99, 880.00, 987.77],
+                    arcade: [800, 400, 800, 300, 900, 200, 1000, 500],
+                    arena: [220, 246.94, 261.63, 293.66, 329.63, 349.23],
+                    leaderboard: [440, 554.37, 659.25, 880, 659.25, 554.37]
+                };
+
+                this.bgmTimer = setInterval(() => {
+                    if (!this.isPlayingBgm || !this.ctx) return;
+                    const melody = melodies[this.currentMenu] || melodies.home;
+                    const freq = melody[this.noteIndex % melody.length];
+                    const osc = this.ctx.createOscillator(), gain = this.ctx.createGain();
+                    osc.type = this.currentMenu === 'arcade' ? 'sawtooth' : this.currentMenu === 'translator' ? 'square' : 'triangle';
+                    osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                    gain.gain.setValueAtTime(0.04, this.ctx.currentTime); 
+                    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.12);
+                    osc.connect(gain); gain.connect(this.ctx.destination);
+                    osc.start(); osc.stop(this.ctx.currentTime + 0.12);
+                    this.noteIndex++;
+                }, 140);
+            }
+        }
+        const audioEngine = new PixelAudioEngine();
+
+        const Icon = ({ path }) => (
+            <svg width="20" height="20" viewBox="0 0 10 10" className="inline-block" style={{ shapeRendering: 'crispEdges' }}>{path}</svg>
+        );
+        const PixelSpaceshipIcon = () => <Icon path={<><rect x="4" y="0" width="2" height="2" fill="#ff3399"/><rect x="3" y="2" width="4" height="2" fill="#fff"/><rect x="2" y="4" width="6" height="3" fill="#00ccff"/><rect x="1" y="7" width="8" height="2" fill="#ffcc00"/><rect x="0" y="9" width="2" height="1" fill="#ff3300"/><rect x="8" y="9" width="2" height="1" fill="#ff3300"/></>} />;
+        const PixelAlienIcon = () => <Icon path={<><rect x="2" y="1" width="6" height="6" fill="#33ff33"/><rect x="1" y="3" width="8" height="3" fill="#33ff33"/><rect x="2" y="3" width="2" height="2" fill="#000"/><rect x="6" y="3" width="2" height="2" fill="#000"/><rect x="3" y="6" width="4" height="1" fill="#000"/><rect x="1" y="7" width="2" height="2" fill="#33ff33"/><rect x="7" y="7" width="2" height="2" fill="#33ff33"/></>} />;
+        const PixelPlanetIcon = () => <Icon path={<><rect x="3" y="1" width="4" height="8" fill="#ff9900"/><rect x="1" y="3" width="8" height="4" fill="#ff9900"/><rect x="2" y="2" width="6" height="6" fill="#ff9900"/><rect x="0" y="4" width="10" height="2" fill="#66ffff"/><rect x="3" y="3" width="2" height="2" fill="#ffff00"/></>} />;
+        const PixelUfoIcon = () => <Icon path={<><rect x="3" y="1" width="4" height="2" fill="#66ffff"/><rect x="1" y="3" width="8" height="3" fill="#cc66ff"/><rect x="0" y="4" width="10" height="1" fill="#fff"/><rect x="2" y="6" width="2" height="2" fill="#ffcc00"/><rect x="6" y="6" width="2" height="2" fill="#ffcc00"/></>} />;
+        const PixelStarIcon = () => <Icon path={<><rect x="4" y="0" width="2" height="10" fill="#ffff00"/><rect x="0" y="4" width="10" height="2" fill="#ffff00"/><rect x="3" y="3" width="4" height="4" fill="#fff"/></>} />;
+
+        const CatMemeIcon = ({ type }) => {
+            if (type === 'chad') {
+                return (
+                    <svg width="64" height="64" viewBox="0 0 16 16" className="mx-auto" style={{ shapeRendering: 'crispEdges' }}>
+                        <rect x="3" y="2" width="10" height="12" fill="#ffcc99"/>
+                        <rect x="2" y="0" width="3" height="3" fill="#333"/>
+                        <rect x="11" y="0" width="3" height="3" fill="#333"/>
+                        <rect x="4" y="5" width="8" height="2" fill="#000"/>
+                        <rect x="5" y="10" width="6" height="3" fill="#cc6600"/>
+                        <rect x="7" y="11" width="2" height="1" fill="#fff"/>
+                    </svg>
+                );
+            }
+            if (type === 'happy') {
+                return (
+                    <svg width="64" height="64" viewBox="0 0 16 16" className="mx-auto" style={{ shapeRendering: 'crispEdges' }}>
+                        <rect x="3" y="3" width="10" height="10" fill="#ff9933"/>
+                        <rect x="2" y="1" width="3" height="3" fill="#ff9933"/>
+                        <rect x="11" y="1" width="3" height="3" fill="#ff9933"/>
+                        <rect x="4" y="5" width="2" height="1" fill="#000"/>
+                        <rect x="10" y="5" width="2" height="1" fill="#000"/>
+                        <rect x="6" y="8" width="4" height="3" fill="#ff3366"/>
+                    </svg>
+                );
+            }
+            return (
+                <svg width="64" height="64" viewBox="0 0 16 16" className="mx-auto" style={{ shapeRendering: 'crispEdges' }}>
+                    <rect x="3" y="3" width="10" height="10" fill="#999"/>
+                    <rect x="2" y="1" width="3" height="3" fill="#999"/>
+                    <rect x="11" y="1" width="3" height="3" fill="#999"/>
+                    <rect x="4" y="6" width="3" height="3" fill="#fff"/>
+                    <rect x="9" y="6" width="3" height="3" fill="#fff"/>
+                    <rect x="5" y="7" width="1" height="1" fill="#000"/>
+                    <rect x="10" y="7" width="1" height="1" fill="#000"/>
+                    <rect x="7" y="10" width="2" height="1" fill="#000"/>
+                </svg>
+            );
+        };
+
+        const Mascot = ({ state, onClick }) => {
+            return (
+                <motion.div 
+                    onClick={onClick}
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.9 }}
+                    className="cursor-pointer inline-block"
+                >
+                    <CatMemeIcon type={state === 'celebrate' ? 'chad' : state === 'typing' ? 'happy' : 'happy'} />
+                </motion.div>
+            );
+        };
+
+        const STYLES = [
+            { id: 'genz', name: 'Gen Z / Brainrot', icon: <PixelAlienIcon />, desc: 'Maximum bussin brainrot vibes' },
+            { id: 'reverse', name: 'Brainrot -> Normal', icon: <PixelUfoIcon />, desc: 'Translate slang back to plain English' },
+            { id: 'shakespeare', name: 'Shakespearean', icon: <PixelPlanetIcon />, desc: 'Verily, thou art goated' },
+            { id: 'british', name: 'British Roadman', icon: <PixelSpaceshipIcon />, desc: 'Allow it fam, bare vibes' },
+            { id: 'pirate', name: 'Pirate Space', icon: <PixelStarIcon />, desc: 'Ahoy space-farer, ye got rizz' }
+        ];
+
+        const GENZ_DICT = {
+            "hello": "yo chat", "hi": "yo", "friend": "blud", "friends": "the squad", 
+            "good": "bussin", "great": "pure W", "cool": "sigma", "bad": "massive L", 
+            "lie": "cap", "truth": "no cap", "yes": "fr fr", "very": "mad", 
+            "crazy": "unhinged", "attractive": "rizzler", "charisma": "rizz", 
+            "steal": "fanum tax", "stole": "fanum taxed", "food": "gyatt feast",
+            "fool": "skibidi NPC", "weird": "sus", "best": "goated with the sauce", 
+            "defeated": "cooked", "focused": "locked in", "money": "mewing funds", 
+            "bro": "chat", "look": "mew", "looking": "mewing", "embarrassed": "cringed out"
+        };
+
+        const REVERSE_DICT = Object.fromEntries(Object.entries(GENZ_DICT).map(([k, v]) => [v.split(' ')[0], k]));
+        const SUFFIXES = [" fr fr", " no cap", " in Ohio", " lowkey", " (real)", " skibidi style", " aura +10000"];
+        
+        const PROMPTS = [
+            "I am currently focusing very hard on completing my homework.",
+            "My friend stole my food while I was not looking.",
+            "That new video game is extremely good and impressive.",
+            "He tried to look stylish, but he embarrassed himself in public.",
+            "I am telling you the truth, I won the competition fairly.",
+            "Can you believe how cool and attractive that person is?",
+            "I am feeling defeated after losing the tournament today.",
+            "My friend made a weird joke and everyone felt awkward.",
+            "I spent all my money on expensive sneakers this weekend.",
+            "We are heading out with the squad to get some dinner."
+        ];
+        
+        const TARGET_WORDS = ["RIZZ", "GYATT", "BUSSIN", "SIGMA", "SKIBIDI", "NO CAP", "GOATED", "COOKED"];
+
+        const PixelNyanBackground = ({ menuTab }) => {
+            const PixelStar = ({ style, delay }) => (
+                <motion.div className="absolute select-none pointer-events-none" style={style} animate={{ opacity: [0.2, 1, 0.2], scale: [0.8, 1.2, 0.8] }} transition={{ duration: 0.8, repeat: Infinity, delay, ease: "easeInOut" }}>
+                    <svg width="16" height="16" viewBox="0 0 8 8" className="w-4 h-4 md:w-5 md:h-5" style={{ shapeRendering: 'crispEdges' }}>
+                        <rect x="3" y="0" width="2" height="8" fill="#fff" /><rect x="0" y="3" width="8" height="2" fill="#fff" /><rect x="2" y="2" width="4" height="4" fill="#fff" />
+                    </svg>
+                </motion.div>
+            );
+
+            const PixelPlanet = ({ style, color, ringColor, hasRing, delay }) => (
+                <motion.div className="absolute select-none pointer-events-none" style={style} animate={{ y: [0, -10, 0], rotate: [0, 10, 0] }} transition={{ duration: 4, repeat: Infinity, delay, ease: "easeInOut" }}>
+                    <svg width="48" height="48" viewBox="0 0 16 16" className="w-12 h-12 md:w-16 md:h-16" style={{ shapeRendering: 'crispEdges' }}>
+                        <rect x="4" y="2" width="8" height="12" fill={color} /><rect x="2" y="4" width="12" height="8" fill={color} />
+                        <rect x="3" y="3" width="10" height="10" fill={color} /><rect x="3" y="9" width="10" height="4" fill="rgba(0,0,0,0.3)" />
+                        <rect x="4" y="3" width="3" height="3" fill="rgba(255,255,255,0.4)" />
+                        {hasRing && <><rect x="0" y="7" width="16" height="2" fill={ringColor} /><rect x="1" y="6" width="2" height="1" fill={ringColor} /><rect x="13" y="9" width="2" height="1" fill={ringColor} /></>}
+                    </svg>
+                </motion.div>
+            );
+
+            const bgGradients = {
+                home: 'bg-[#003366]',
+                translator: 'bg-[#1a0033]',
+                auracheck: 'bg-[#00331a]',
+                arcade: 'bg-[#33001a]',
+                arena: 'bg-[#331a00]',
+                leaderboard: 'bg-[#1a1a33]'
+            };
+
+            return (
+                <div className={`fixed inset-0 pointer-events-none overflow-hidden z-0 transition-colors duration-700 ${bgGradients[menuTab] || bgGradients.home}`}>
+                    <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.05)_1px,transparent_1px)] bg-[size:32px_32px]" />
+                    {Array.from({ length: 28 }).map((_, i) => (
+                        <PixelStar key={`pstar-${i}`} style={{ top: `${(i * 17 + 5) % 95}%`, left: `${(i * 23 + 8) % 95}%` }} delay={(i % 5) * 0.2} />
+                    ))}
+                    <PixelPlanet style={{ top: '10%', left: '8%' }} color="#ff3366" ringColor="#ffcc00" hasRing delay={0} />
+                    <PixelPlanet style={{ top: '65%', left: '82%' }} color="#33cc33" ringColor="#66ffff" hasRing={false} delay={1} />
+                    <PixelPlanet style={{ top: '20%', left: '80%' }} color="#9933ff" ringColor="#ff99ff" hasRing delay={2} />
+                    <PixelPlanet style={{ top: '75%', left: '12%' }} color="#ff9900" ringColor="#ffff00" hasRing={false} delay={1.5} />
+                    
+                    {Array.from({ length: 6 }).map((_, i) => (
+                        <motion.div
+                            key={`bg-popup-${i}`}
+                            className="absolute text-[12px] pixel-font opacity-20 pointer-events-none text-yellow-300"
+                            style={{ top: `${15 + i * 14}%`, left: `${(i * 30 + 10) % 85}%` }}
+                            animate={{ y: [0, -15, 0], opacity: [0.1, 0.3, 0.1] }}
+                            transition={{ duration: 3 + i, repeat: Infinity, ease: "easeInOut" }}
+                        >
+                            {["SKIBIDI", "RIZZ", "GYATT", "MINDSET", "AURA +100", "SIGMA"][i]}
+                        </motion.div>
+                    ))}
+                </div>
+            );
+        };
+
+        const AuraCheckerGame = () => {
+            const [selectedAnswers, setSelectedAnswers] = useState({});
+            const [calculatedAura, setCalculatedAura] = useState(null);
+
+            const questions = [
+                { id: 1, text: "Someone drops their wallet in public. What do you do?", 
+                  opts: [
+                      { text: "Return it immediately without looking inside", aura: 300 },
+                      { text: "Take $5 for 'delivery fee' then return it", aura: -100 },
+                      { text: "Pretend not to see and walk away", aura: 0 },
+                      { text: "Mew silently while handing it back", aura: 500 }
+                  ]
+                },
+                { id: 2, text: "Your fit check before heading out:", 
+                  opts: [
+                      { text: "Triple black oversized vintage drip", aura: 400 },
+                      { text: "Pyjamas and Crocs in sport mode", aura: 250 },
+                      { text: "Full tailored suit to the grocery store", aura: 600 },
+                      { text: "Default NPC outfit", aura: 50 }
+                  ]
+                },
+                { id: 3, text: "Your reaction when getting left on read:", 
+                  opts: [
+                      { text: "Double text immediately", aura: -300 },
+                      { text: "Unsend the message and vanish", aura: 200 },
+                      { text: "Maintain eye contact through screen", aura: 450 },
+                      { text: "Post a stoic quote on story", aura: 100 }
+                  ]
+                },
+                { id: 4, text: "You stumble and trip over nothing in a crowded room:", 
+                  opts: [
+                      { text: "Turn it into an immediate breakdance move", aura: 600 },
+                      { text: "Apologize to the floor", aura: -200 },
+                      { text: "Blame the floor's hitboxes", aura: 150 },
+                      { text: "Look around nervously and walk faster", aura: -100 }
+                  ]
+                },
+                { id: 5, text: "How do you handle a group project assignment?", 
+                  opts: [
+                      { text: "Do the entire thing yourself in 2 AM hyperfocus", aura: 500 },
+                      { text: "Assign tasks like a corporate CEO", aura: 350 },
+                      { text: "Nod silently during meetings and claim credits", aura: -250 },
+                      { text: "Send memes in the group chat for moral support", aura: 200 }
+                  ]
+                },
+                { id: 6, text: "Your ideal response to a compliment:", 
+                  opts: [
+                      { text: "'I know, chat.'", aura: 450 },
+                      { text: "Blush furiously and deny everything", aura: 50 },
+                      { text: "Tip invisible fedora", aura: -400 },
+                      { text: "'Aura +1000 for noticing.'", aura: 300 }
+                  ]
+                }
+            ];
+
+            const handleSelect = (qId, auraVal) => {
+                audioEngine.playPop();
+                setSelectedAnswers(prev => ({ ...prev, [qId]: auraVal }));
+            };
+
+            const calculateAuraScore = () => {
+                let total = 500 + Object.values(selectedAnswers).reduce((a, b) => a + b, 0);
+                audioEngine.playFanfare();
+                setCalculatedAura(total);
+                if (window.confetti) window.confetti({ particleCount: 80, spread: 60 });
+            };
+
+            return (
+                <div className="retro-card p-6 rounded-xl space-y-6">
+                    <div className="text-center space-y-2">
+                        <h2 className="text-xs md:text-sm pixel-font text-yellow-300 flex items-center justify-center gap-2"><PixelUfoIcon /> AURA SCANNER GAME <PixelUfoIcon /></h2>
+                        <p className="text-[8px] text-gray-300">Answer scenario questions to scan your cosmic aura level!</p>
+                    </div>
+                    <div className="space-y-4">
+                        {questions.map((q) => (
+                            <div key={q.id} className="p-3 bg-[#001a33] border-2 border-white rounded space-y-2">
+                                <p className="text-[9px] text-yellow-200 pixel-font">{q.id}. {q.text}</p>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                    {q.opts.map((opt, idx) => (
+                                        <button key={idx} onClick={() => handleSelect(q.id, opt.aura)} className={`p-2 text-left text-[8px] border rounded transition ${selectedAnswers[q.id] === opt.aura ? 'bg-pink-600 border-yellow-300 text-white font-bold' : 'bg-[#002244] border-gray-600 text-gray-300 hover:bg-[#003366]'}`}>
+                                            {opt.text}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                    <button onClick={calculateAuraScore} disabled={Object.keys(selectedAnswers).length < questions.length} className="w-full py-3 bg-yellow-400 border-2 border-white text-black font-bold pixel-font text-[10px] hover:bg-yellow-300 transition shadow-[0_4px_0_#000] disabled:opacity-40">
+                        ANALYZE COSMIC AURA ✨
+                    </button>
+                    {calculatedAura !== null && (
+                        <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="p-4 retro-box rounded text-center space-y-3">
+                            <div className="text-[9px] pixel-font text-pink-400">YOUR SCANNED AURA:</div>
+                            <div className="text-2xl pixel-font text-green-400">{calculatedAura} AURA</div>
+                            
+                            <div className="py-2">
+                                <CatMemeIcon type={calculatedAura > 1500 ? 'chad' : calculatedAura > 800 ? 'happy' : 'cry'} />
+                            </div>
+
+                            <p className="text-[8px] text-gray-200">
+                                {calculatedAura > 1500 
+                                    ? "GIGACHAD CAT APPROVED! UNSTOPPABLE COSMIC ENERGY!" 
+                                    : calculatedAura > 800 
+                                    ? "HAPPY CAT VIBES! Solid respectable aura energy!" 
+                                    : "CRYING CAT STATUS... Massive L aura, keep grinding!"}
+                            </p>
+                        </motion.div>
+                    )}
+                </div>
+            );
+        };
+
+        const InteractivePopGame = () => {
+            const [score, setScore] = useState(0);
+            const [pods, setPods] = useState([]);
+            const [cursorPos, setCursorPos] = useState({ x: 150, y: 150 });
+            const [isHovered, setIsHovered] = useState(false);
+            const containerRef = useRef(null);
+
+            useEffect(() => {
+                const interval = setInterval(() => {
+                    const id = Date.now() + Math.random();
+                    const word = TARGET_WORDS[Math.floor(Math.random() * TARGET_WORDS.length)];
+                    const x = Math.random() * 75 + 10;
+                    setPods(prev => [...prev.slice(-6), { id, word, x }]);
+                }, 1200);
+                return () => clearInterval(interval);
+            }, []);
+
+            const handleMouseMove = (e) => {
+                if (!containerRef.current) return;
+                const rect = containerRef.current.getBoundingClientRect();
+                setCursorPos({
+                    x: e.clientX - rect.left,
+                    y: e.clientY - rect.top
+                });
+            };
+
+            const handleContainerClick = () => {
+                audioEngine.playLaserSound();
+            };
+
+            const popPod = (e, id) => {
+                e.stopPropagation();
+                audioEngine.playPop();
+                setScore(s => s + 10);
+                setPods(prev => prev.filter(t => t.id !== id));
+                if (window.confetti) window.confetti({ particleCount: 20, spread: 40 });
+            };
+
+            return (
+                <div 
+                    ref={containerRef}
+                    onMouseMove={handleMouseMove}
+                    onMouseEnter={() => setIsHovered(true)}
+                    onMouseLeave={() => setIsHovered(false)}
+                    onClick={handleContainerClick}
+                    className="retro-card p-6 rounded-xl relative min-h-[350px] overflow-hidden cursor-crosshair game-pixel-bg select-none"
+                >
+                    <div className="flex justify-between items-center mb-4 z-10 relative">
+                        <div className="text-xs pixel-font text-yellow-300 flex items-center gap-2">
+                            <PixelSpaceshipIcon /> BRAINROT BLASTER
+                        </div>
+                        <div className="text-xs pixel-font text-green-400 border-2 border-green-400 px-2 py-1 bg-black">
+                            SCORE: {score}
+                        </div>
+                    </div>
+
+                    <div className="relative w-full h-[250px] border-2 border-dashed border-gray-600 rounded overflow-hidden">
+                        {pods.map(pod => (
+                            <motion.button
+                                key={pod.id}
+                                initial={{ y: 250, opacity: 1 }}
+                                animate={{ y: -50 }}
+                                transition={{ duration: 4, ease: "linear" }}
+                                onClick={(e) => popPod(e, pod.id)}
+                                className="absolute bg-pink-600 hover:bg-pink-500 border-2 border-white px-3 py-1 rounded text-[9px] pixel-font text-white shadow-[0_2px_0_#000] cursor-pointer"
+                                style={{ left: `${pod.x}%` }}
+                            >
+                                {pod.word}
+                            </motion.button>
+                        ))}
+
+                        {isHovered && (
+                            <div 
+                                className="absolute pointer-events-none w-6 h-6 border-2 border-yellow-300 rounded-full -translate-x-1/2 -translate-y-1/2 flex items-center justify-center"
+                                style={{ left: cursorPos.x, top: cursorPos.y }}
+                            >
+                                <div className="w-1 h-1 bg-red-500 rounded-full" />
+                            </div>
+                        )}
+                    </div>
+                    <div className="mt-3 text-[8px] text-center text-gray-400 pixel-font">
+                        CLICK FLOATING SLANG PODS TO BLAST THEM FOR AURA POINTS!
+                    </div>
+                </div>
+            );
+        };
+
+        const MainApp = () => {
+            const [tab, setTab] = useState('home');
+            const [bgmActive, setBgmActive] = useState(false);
+            const [inputText, setInputText] = useState('');
+            const [outputText, setOutputText] = useState('');
+            const [selectedStyle, setSelectedStyle] = useState('genz');
+            const [auraScore, setAuraScore] = useState(850);
+            const [mascotState, setMascotState] = useState('idle');
+
+            const handleTabChange = (newTab) => {
+                audioEngine.playBlip(520, 'square');
+                audioEngine.setMenuTheme(newTab);
+                setTab(newTab);
+            };
+
+            const translateText = () => {
+                if (!inputText.trim()) return;
+                setMascotState('typing');
+                audioEngine.playGoofyTranslateSound();
+
+                setTimeout(() => {
+                    let result = inputText.toLowerCase();
+                    const dict = selectedStyle === 'reverse' ? REVERSE_DICT : GENZ_DICT;
+                    
+                    Object.keys(dict).forEach(word => {
+                        const regex = new RegExp(`\\b${word}\\b`, 'gi');
+                        result = result.replace(regex, dict[word]);
+                    });
+
+                    if (selectedStyle === 'genz') {
+                        result += SUFFIXES[Math.floor(Math.random() * SUFFIXES.length)];
+                    } else if (selectedStyle === 'shakespeare') {
+                        result = "Verily, " + result + ", thou art requested to vibe.";
+                    } else if (selectedStyle === 'british') {
+                        result = "Bruv, " + result + " innit, bare proper.";
+                    } else if (selectedStyle === 'pirate') {
+                        result = "Ahoy! " + result + " by Davy Jones' locker!";
+                    }
+
+                    setOutputText(result);
+                    setMascotState('celebrate');
+                    setAuraScore(prev => prev + 25);
+                    setTimeout(() => setMascotState('idle'), 1200);
+                }, 300);
+            };
+
+            return (
+                <div className="min-h-screen pb-12 relative text-white">
+                    <PixelNyanBackground menuTab={tab} />
+
+                    <div className="relative z-10 max-w-3xl mx-auto px-4 pt-6 space-y-6">
+                        {/* Header */}
+                        <header className="retro-card p-4 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-4">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-pink-600 border-2 border-white rounded">
+                                    <PixelSpaceshipIcon />
+                                </div>
+                                <div>
+                                    <h1 className="text-lg md:text-xl pixel-font text-yellow-300 drop-shadow-[0_2px_0_#000]">
+                                        VIBELINGO
+                                    </h1>
+                                    <p className="text-[8px] text-gray-300">RETRO BRAINROT SLANG ENGINE</p>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                                <button 
+                                    onClick={() => audioEngine.toggleBGM(setBgmActive)}
+                                    className={`px-3 py-2 border-2 border-white rounded text-[8px] pixel-font transition ${bgmActive ? 'bg-green-600 text-white' : 'bg-red-800 text-gray-300'}`}
+                                >
+                                    MUSIC: {bgmActive ? 'ON 🎵' : 'OFF 🔇'}
+                                </button>
+                                <div className="px-3 py-2 bg-yellow-400 text-black border-2 border-white rounded text-[8px] pixel-font">
+                                    AURA: {auraScore}
+                                </div>
+                            </div>
+                        </header>
+
+                        {/* Navigation Tabs */}
+                        <nav className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                            {[
+                                { id: 'home', label: 'HUB' },
+                                { id: 'translator', label: 'TRANSLATE' },
+                                { id: 'auracheck', label: 'AURA SCAN' },
+                                { id: 'arcade', label: 'ARCADE' },
+                                { id: 'arena', label: 'ARENA' },
+                                { id: 'leaderboard', label: 'RANKS' }
+                            ].map(item => (
+                                <button
+                                    key={item.id}
+                                    onClick={() => handleTabChange(item.id)}
+                                    className={`py-2 px-1 text-[8px] pixel-font border-2 rounded transition shadow-[0_2px_0_#000] ${tab === item.id ? 'bg-pink-600 border-yellow-300 text-white font-bold scale-105' : 'bg-[#001a33] border-white text-gray-300 hover:bg-[#002b55]'}`}
+                                >
+                                    {item.label}
+                                </button>
+                            ))}
+                        </nav>
+
+                        {/* Main Content Area */}
+                        <main>
+                            {tab === 'home' && (
+                                <div className="retro-card p-6 rounded-xl space-y-6 text-center">
+                                    <Mascot state={mascotState} onClick={() => setAuraScore(s => s + 5)} />
+                                    <div className="space-y-2">
+                                        <h2 className="text-sm pixel-font text-yellow-300">WELCOME TO VIBELINGO!</h2>
+                                        <p className="text-[9px] leading-relaxed text-gray-200">
+                                            The ultimate 8-bit slang converter and cosmic vibe scanner. Translate plain boring text into full brainrot, test your aura, or battle in games!
+                                        </p>
+                                    </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                                        <button onClick={() => handleTabChange('translator')} className="p-3 bg-pink-600 border-2 border-white rounded text-[9px] pixel-font hover:bg-pink-500 shadow-[0_3px_0_#000]">
+                                            START TRANSLATING 🚀
+                                        </button>
+                                        <button onClick={() => handleTabChange('auracheck')} className="p-3 bg-cyan-600 border-2 border-white rounded text-[9px] pixel-font hover:bg-cyan-500 shadow-[0_3px_0_#000]">
+                                            SCAN YOUR AURA ✨
+                                        </button>
+                                        <button onClick={() => handleTabChange('arcade')} className="p-3 bg-purple-600 border-2 border-white rounded text-[9px] pixel-font hover:bg-purple-500 shadow-[0_3px_0_#000]">
+                                            PLAY ARCADE 👾
+                                        </button>
+                                        <button onClick={() => handleTabChange('arena')} className="p-3 bg-red-600 border-2 border-white rounded text-[9px] pixel-font hover:bg-red-500 shadow-[0_3px_0_#000]">
+                                            ENTER ARENA ⚔️
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {tab === 'translator' && (
+                                <div className="retro-card p-6 rounded-xl space-y-4">
+                                    <div className="flex justify-between items-center">
+                                        <h2 className="text-xs pixel-font text-yellow-300">SLANG TRANSLATOR</h2>
+                                        <button 
+                                            onClick={() => setInputText(PROMPTS[Math.floor(Math.random() * PROMPTS.length)])}
+                                            className="text-[7px] bg-purple-700 hover:bg-purple-600 border border-white px-2 py-1 rounded"
+                                        >
+                                            RANDOM PROMPT
+                                        </button>
+                                    </div>
+
+                                    {/* Style selector */}
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                        {STYLES.map(s => (
+                                            <button
+                                                key={s.id}
+                                                onClick={() => { audioEngine.playPop(); setSelectedStyle(s.id); }}
+                                                className={`p-2 border rounded text-left flex items-center gap-2 ${selectedStyle === s.id ? 'bg-pink-600 border-yellow-300' : 'bg-[#001a33] border-gray-600'}`}
+                                            >
+                                                {s.icon}
+                                                <span className="text-[7px] pixel-font">{s.name}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+
+                                    {/* Inputs */}
+                                    <div className="space-y-2">
+                                        <textarea
+                                            value={inputText}
+                                            onChange={(e) => setInputText(e.target.value)}
+                                            placeholder="Type normal text here..."
+                                            className="w-full h-24 p-3 bg-[#001122] border-2 border-white text-white text-[9px] pixel-font rounded focus:outline-none focus:border-yellow-300"
+                                        />
+                                        <button
+                                            onClick={translateText}
+                                            className="w-full py-3 bg-yellow-400 border-2 border-white text-black font-bold pixel-font text-[10px] hover:bg-yellow-300 shadow-[0_4px_0_#000]"
+                                        >
+                                            VIBELINGO ⚡
+                                        </button>
+                                    </div>
+
+                                    {/* Output */}
+                                    {outputText && (
+                                        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="p-4 retro-box rounded space-y-2">
+                                            <div className="text-[7px] text-pink-400 pixel-font">OUTPUT:</div>
+                                            <div className="text-[9px] text-green-300 pixel-font leading-relaxed">{outputText}</div>
+                                        </motion.div>
+                                    )}
+                                </div>
+                            )}
+
+                            {tab === 'auracheck' && <AuraCheckerGame />}
+
+                            {tab === 'arcade' && <InteractivePopGame />}
+
+                            {tab === 'arena' && (
+                                <div className="retro-card p-6 rounded-xl space-y-4 text-center">
+                                    <h2 className="text-xs pixel-font text-yellow-300 flex items-center justify-center gap-2">
+                                        <PixelSpaceshipIcon /> SLANG ARENA <PixelSpaceshipIcon />
+                                    </h2>
+                                    <p className="text-[9px] text-gray-300 leading-relaxed">
+                                        PvP Brainrot Battles coming soon! Challenge other SIGMAs in real-time slang translation showdowns!
+                                    </p>
+                                    <div className="py-6 retro-box rounded flex items-center justify-center">
+                                        <span className="text-xl pixel-font text-pink-500 animate-pulse">COMING SOON ⚔️</span>
+                                    </div>
+                                </div>
+                            )}
+
+                            {tab === 'leaderboard' && (
+                                <div className="retro-card p-6 rounded-xl space-y-4">
+                                    <h2 className="text-xs pixel-font text-yellow-300 text-center">GLOBAL AURA LEADERBOARD</h2>
+                                    <div className="space-y-2">
+                                        {[
+                                            { rank: 1, name: 'GigaChad_99', aura: 9999 },
+                                            { rank: 2, name: 'RizzGod_404', aura: 4200 },
+                                            { rank: 3, name: 'You (Current)', aura: auraScore },
+                                            { rank: 4, name: 'SkibidiFan_12', aura: 650 },
+                                            { rank: 5, name: 'NPC_Default', aura: 100 }
+                                        ].map(item => (
+                                            <div key={item.rank} className={`p-3 border-2 rounded flex justify-between items-center text-[8px] pixel-font ${item.name.includes('You') ? 'bg-pink-600 border-yellow-300' : 'bg-[#001a33] border-white'}`}>
+                                                <span>#{item.rank} {item.name}</span>
+                                                <span className="text-yellow-300">{item.aura} AURA</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </main>
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<MainApp />);
+    </script>
+</body>
+</html>

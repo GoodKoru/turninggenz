@@ -2,20 +2,20 @@
 
 
 
-# [Project Name] 🎯
+# [turninggenz] 🎯
 
 
 ## Basic Details
-### Team Name: [Name]
+### Team Name: [idkhowtoname]
 
 
 ### Team Members
-- Team Lead: [Name] - [College]
-- Member 2: [Name] - [College]
+- Team Lead: [Nidhi] - [College]
+- Member 2: [Riya] - [College]
 - Member 3: [Name] - [College]
 
 ### Project Description
-[2-3 lines about what your project does]
+[A translator which turns normal english into genz slangs it also have a game arena and aura checking ]
 
 ### The Problem (that doesn't exist)
 [What ridiculous problem are you solving?]

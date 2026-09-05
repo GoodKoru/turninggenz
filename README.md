@@ -45,19 +45,19 @@ For Software:
 *Add caption explaining what this shows*
 
 <img width="1910" height="962" alt="image" src="https://github.com/user-attachments/assets/90d2bb2b-d71f-40e5-8d73-48490e4d3752" />
-
+Main menu
 
 ![Screenshot2](Add screenshot 2 here with proper name)
 *Add caption explaining what this shows*
 
 <img width="1907" height="905" alt="image" src="https://github.com/user-attachments/assets/20c686e7-7c26-465d-913d-70387ee932c9" />
-
+Translater
 
 ![Screenshot3](Add screenshot 3 here with proper name)
 *Add caption explaining what this shows*
 
 <img width="1912" height="902" alt="image" src="https://github.com/user-attachments/assets/5d921367-a3f0-4755-9bdb-4098b0e08932" />
-
+Leaderboard
 
 # Diagrams
 ![Workflow](Add your workflow/architecture diagram here)

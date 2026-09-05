@@ -44,6 +44,9 @@ For Software:
 ![Screenshot1](Add screenshot 1 here with proper name)
 *Add caption explaining what this shows*
 
+<img width="1910" height="962" alt="image" src="https://github.com/user-attachments/assets/90d2bb2b-d71f-40e5-8d73-48490e4d3752" />
+
+
 ![Screenshot2](Add screenshot 2 here with proper name)
 *Add caption explaining what this shows*
 
@@ -53,15 +56,6 @@ For Software:
 # Diagrams
 ![Workflow](Add your workflow/architecture diagram here)
 *Add caption explaining your workflow*
-
-For Hardware:
-
-# Schematic & Circuit
-![Circuit](Add your circuit diagram here)
-*Add caption explaining connections*
-
-![Schematic](Add your schematic diagram here)
-*Add caption explaining the schematic*
 
 # Build Photos
 ![Components](Add photo of your components here)

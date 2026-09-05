@@ -10,18 +10,17 @@
 
 
 ### Team Members
-- Team Lead: [Nidhi] - [College]
-- Member 2: [Riya] - [College]
-- Member 3: [Name] - [College]
+- Team Lead: [Nidhi] - [sahrdaya college of advanced studies]
+- Member 2: [Riya] - [sahrdaya college of advanced studies]
 
 ### Project Description
 [A translator which turns normal english into genz slangs it also have a game arena and aura checking ]
 
 ### The Problem (that doesn't exist)
-[What ridiculous problem are you solving?]
+[teaching genz slangs for no particular reasons]
 
 ### The Solution (that nobody asked for)
-[How are you solving it? Keep it fun!]
+[creating a translator which turns english into genz slang so people can understand modern lingo]
 
 ## Technical Details
 ### Technologies/Components Used

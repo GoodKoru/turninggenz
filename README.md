@@ -25,23 +25,17 @@
 ## Technical Details
 ### Technologies/Components Used
 For Software:
-- [Languages used]
-- [Frameworks used]
-- [Libraries used]
-- [Tools used]
-
-For Hardware:
-- [List main components]
-- [List specifications]
-- [List tools required]
+- [HTML]
+- [HTML]
+- [VScode]
 
 ### Implementation
 For Software:
 # Installation
-[commands]
+[VScode]
 
 # Run
-[commands]
+[VScode]
 
 ### Project Documentation
 For Software:
@@ -88,9 +82,8 @@ For Hardware:
 [Add any extra demo materials/links]
 
 ## Team Contributions
-- [Name 1]: [Specific contributions]
-- [Name 2]: [Specific contributions]
-- [Name 3]: [Specific contributions]
+- [Nidhi]: [Ideas and coding]
+- [Name 2]: [ideas and coding]
 
 ---
 Made with ❤️ at TinkerHub Useless Projects 

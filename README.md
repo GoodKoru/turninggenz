@@ -50,8 +50,14 @@ For Software:
 ![Screenshot2](Add screenshot 2 here with proper name)
 *Add caption explaining what this shows*
 
+<img width="1907" height="905" alt="image" src="https://github.com/user-attachments/assets/20c686e7-7c26-465d-913d-70387ee932c9" />
+
+
 ![Screenshot3](Add screenshot 3 here with proper name)
 *Add caption explaining what this shows*
+
+<img width="1912" height="902" alt="image" src="https://github.com/user-attachments/assets/5d921367-a3f0-4755-9bdb-4098b0e08932" />
+
 
 # Diagrams
 ![Workflow](Add your workflow/architecture diagram here)

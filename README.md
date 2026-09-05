@@ -83,7 +83,7 @@ Leaderboard
 
 ## Team Contributions
 - [Nidhi]: [Ideas and coding]
-- [Name 2]: [ideas and coding]
+- [Riya]: [ideas and coding]
 
 ---
 Made with ❤️ at TinkerHub Useless Projects 
